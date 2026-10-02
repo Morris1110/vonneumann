@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Von Neumann Architecture Explorer - Grade 10</title>
+<style>
+  :root{
+    --bg:#f6f8fc; --panel:#ffffff; --ink:#172033; --muted:#64748b; --line:#cbd5e1;
+    --cpu:#eef2ff; --ram:#ecfdf5; --io:#fff7ed; --accent:#2563eb; --data:#7c3aed;
+    --address:#0f766e; --control:#c2410c; --active:#facc15; --ok:#16a34a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+  .page{max-width:1180px;margin:auto;padding:24px}
+  header{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+  h1{font-size:clamp(1.55rem,3vw,2.4rem);margin:0 0 6px}
+  .sub{color:var(--muted);max-width:820px;line-height:1.5;margin:0}
+  .badge{background:#e0e7ff;border:1px solid #c7d2fe;color:#3730a3;padding:8px 12px;border-radius:999px;font-weight:700;font-size:.85rem}
+  .layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,.85fr);gap:16px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+  button,select,input{font:inherit}
+  button{border:1px solid #b8c2d3;background:#fff;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;min-height:42px}
+  button:hover{background:#f8fafc}
+  button.primary{background:var(--accent);color:white;border-color:var(--accent)}
+  button:focus-visible,.component:focus-visible{outline:3px solid #93c5fd;outline-offset:2px}
+  button:disabled{opacity:.55;cursor:not-allowed}
+  .speed{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.9rem;margin-left:auto}
+  .stage{position:relative;background:#f8fafc;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  svg{display:block;width:100%;height:auto;min-height:440px}
+  .box{stroke:#64748b;stroke-width:2;rx:16;ry:16}
+  .cpu-fill{fill:var(--cpu)} .ram-fill{fill:var(--ram)} .io-fill{fill:var(--io)} .reg-fill{fill:white}
+  .component{cursor:pointer;transition:filter .2s ease}
+  .component:hover .box{filter:brightness(.97)}
+  .component.active .box{stroke:#111827;stroke-width:4;filter:drop-shadow(0 0 6px rgba(250,204,21,.9))}
+  .component.active .box,.component.active .smallbox{fill:#fef9c3}
+  .smallbox{stroke:#94a3b8;stroke-width:1.5;rx:10;ry:10}
+  .label{font-size:16px;font-weight:800;fill:#111827;text-anchor:middle;pointer-events:none}
+  .tiny{font-size:12px;fill:#475569;text-anchor:middle;pointer-events:none}
+  .bus{fill:none;stroke-width:8;stroke-linecap:round;opacity:.46;transition:opacity .2s, stroke-width .2s, filter .2s}
+  .bus.address{stroke:var(--address)} .bus.data{stroke:var(--data)} .bus.control{stroke:var(--control)}
+  .bus.active{opacity:1;stroke-width:11;filter:drop-shadow(0 0 4px rgba(15,23,42,.25));stroke-dasharray:16 10;animation:dash .55s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-26}}
+  .bus-label{font-size:12px;font-weight:800;paint-order:stroke;stroke:#f8fafc;stroke-width:4px;stroke-linejoin:round}
+  .packet{opacity:0;transition:opacity .15s;pointer-events:none}
+  .packet.show{opacity:1}
+  .packet circle{fill:#111827;stroke:#fff;stroke-width:2}
+  .packet text{fill:#fff;font-size:10px;font-weight:800;text-anchor:middle;dominant-baseline:middle}
+  .info h2,.step h2{font-size:1.15rem;margin:0 0 8px}
+  .info p,.step p{line-height:1.5;margin:.4rem 0;color:#334155}
+  .info .function{font-size:1.03rem;color:#0f172a}
+  .mini{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .mini div{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fafafa}
+  .mini strong{display:block;font-size:.82rem;color:var(--muted);margin-bottom:3px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:.82rem;color:#475569}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:26px;height:5px;border-radius:99px}
+  .step{margin-top:12px;background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:12px}
+  .step-number{font-weight:800;color:#92400e;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+  .memory{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+  .memcell{border:1px solid var(--line);border-radius:10px;padding:8px;font-size:.83rem;background:#fff}
+  .memcell.active{border:2px solid var(--ok);background:#f0fdf4}
+  .memcell b{display:block;color:#475569;font-size:.74rem}
+  .callout{margin-top:10px;padding:10px;border-left:4px solid var(--accent);background:#eff6ff;border-radius:8px;font-size:.88rem;line-height:1.4}
+  .footer-note{font-size:.82rem;color:var(--muted);margin-top:10px}
+  @media(max-width:850px){.layout{grid-template-columns:1fr}.speed{margin-left:0}svg{min-height:360px}.page{padding:14px}}
+  @media(prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div class="page" id="app">
+  <header>
+    <div><h1>Von Neumann Architecture Explorer</h1><p class="sub">Click a component to learn its job, then run the animation to watch a simple <b>fetch → decode → execute</b> cycle. This Grade 10 model focuses on the CPU, RAM, buses, input and output.</p></div>
+    <div class="badge">Grade 10 • Basic Model</div>
+  </header>
+
+  <div class="layout">
+    <section class="card" aria-label="Interactive Von Neumann architecture diagram">
+      <div class="controls">
+        <button id="next" class="primary" type="button">Next Step</button>
+        <button id="auto" type="button">Auto Play</button>
+        <button id="reset" type="button">Reset</button>
+        <label class="speed">Speed
+          <select id="speed" aria-label="Animation speed"><option value="1800">Slow</option><option value="1200" selected>Normal</option><option value="750">Fast</option></select>
+        </label>
+      </div>
+
+      <div class="stage">
+        <svg viewBox="0 0 980 560" role="img" aria-label="Diagram with input, CPU containing control unit, ALU, MAR and MDR, RAM, output, and three buses">
+          <!-- buses -->
+          <path id="addressBus" class="bus address" d="M 455 410 L 455 475 L 760 475 L 760 400" />
+          <path id="dataBus" class="bus data" d="M 545 410 L 545 505 L 815 505 L 815 400" />
+          <path id="controlBus" class="bus control" d="M 365 250 L 305 250 L 305 445 L 705 445 L 705 400" />
+          <path id="inputPath" class="bus data" d="M 175 200 L 290 200 L 290 335 L 375 335" />
+          <path id="outputPath" class="bus data" d="M 605 335 L 690 335 L 690 200 L 805 200" />
+
+          <text x="615" y="465" class="bus-label" fill="#0f766e">ADDRESS BUS</text>
+          <text x="650" y="527" class="bus-label" fill="#7c3aed">DATA BUS</text>
+          <text x="475" y="435" class="bus-label" fill="#c2410c">CONTROL BUS</text>
+
+          <!-- input -->
+          <g class="component" id="input" tabindex="0" role="button" aria-label="Input device">
+            <rect class="box io-fill" x="45" y="140" width="130" height="120" />
+            <text class="label" x="110" y="185">INPUT</text>
+            <text class="tiny" x="110" y="210">keyboard / mouse</text>
+            <text class="tiny" x="110" y="229">sends data in</text>
+          </g>
+
+          <!-- CPU -->
+          <g id="cpuGroup">
+            <rect class="box cpu-fill" x="330" y="85" width="320" height="325" />
+            <text class="label" x="490" y="118">CPU</text>
+            <text class="tiny" x="490" y="136">Central Processing Unit</text>
+          </g>
+
+          <g class="component" id="cu" tabindex="0" role="button" aria-label="Control Unit">
+            <rect class="smallbox reg-fill" x="365" y="155" width="250" height="75" />
+            <text class="label" x="490" y="183">CONTROL UNIT (CU)</text>
+            <text class="tiny" x="490" y="205">coordinates and sends control signals</text>
+          </g>
+          <g class="component" id="alu" tabindex="0" role="button" aria-label="Arithmetic Logic Unit">
+            <rect class="smallbox reg-fill" x="365" y="245" width="250" height="75" />
+            <text class="label" x="490" y="273">ALU</text>
+            <text class="tiny" x="490" y="295">calculations and logical comparisons</text>
+          </g>
+          <g class="component" id="mar" tabindex="0" role="button" aria-label="Memory Address Register">
+            <rect class="smallbox reg-fill" x="365" y="335" width="115" height="58" />
+            <text class="label" x="422" y="360">MAR</text>
+            <text class="tiny" x="422" y="379">address</text>
+          </g>
+          <g class="component" id="mdr" tabindex="0" role="button" aria-label="Memory Data Register">
+            <rect class="smallbox reg-fill" x="500" y="335" width="115" height="58" />
+            <text class="label" x="557" y="360">MDR</text>
+            <text class="tiny" x="557" y="379">data / instruction</text>
+          </g>
+
+          <!-- output -->
+          <g class="component" id="output" tabindex="0" role="button" aria-label="Output device">
+            <rect class="box io-fill" x="805" y="140" width="130" height="120" />
+            <text class="label" x="870" y="185">OUTPUT</text>
+            <text class="tiny" x="870" y="210">monitor / printer</text>
+            <text class="tiny" x="870" y="229">shows results</text>
+          </g>
+
+          <!-- RAM -->
+          <g class="component" id="ram" tabindex="0" role="button" aria-label="Random Access Memory">
+            <rect class="box ram-fill" x="690" y="300" width="245" height="110" />
+            <text class="label" x="812" y="330">RAM</text>
+            <text class="tiny" x="812" y="350">temporarily stores programs + data</text>
+            <text class="tiny" id="ramStatus" x="812" y="379">[10]  ADD 5, 3</text>
+          </g>
+
+          <!-- moving packet -->
+          <g id="packet" class="packet" transform="translate(0 0)"><circle r="18"></circle><text id="packetText">10</text></g>
+        </svg>
+      </div>
+
+      <div class="legend" aria-label="Bus legend">
+        <span><i class="swatch" style="background:var(--address)"></i>Address bus: where?</span>
+        <span><i class="swatch" style="background:var(--data)"></i>Data bus: what?</span>
+        <span><i class="swatch" style="background:var(--control)"></i>Control bus: what action?</span>
+      </div>
+
+      <div class="step" aria-live="polite">
+        <div id="stepNo" class="step-number">Ready</div>
+        <h2 id="stepTitle">Explore first, then run the cycle</h2>
+        <p id="stepText">Click any component in the diagram to read its function. When ready, press <b>Next Step</b>.</p>
+      </div>
+    </section>
+
+    <aside class="card info" aria-live="polite">
+      <h2 id="infoTitle">Component Explorer</h2>
+      <p id="infoFunction" class="function">Select a component in the diagram.</p>
+      <div class="mini">
+        <div><strong>Main question</strong><span id="infoQuestion">What does it do?</span></div>
+        <div><strong>Easy memory clue</strong><span id="infoClue">Click to reveal.</span></div>
+      </div>
+      <div class="callout" id="infoExample"><b>Try this:</b> click MAR, MDR and each bus before starting the animation.</div>
+
+      <h2 style="margin-top:18px">Example memory</h2>
+      <div class="memory" id="memory">
+        <div class="memcell" data-addr="10"><b>Address 10</b>ADD 5, 3</div>
+        <div class="memcell" data-addr="11"><b>Address 11</b>STORE 8</div>
+        <div class="memcell" data-addr="12"><b>Address 12</b>Value: 5</div>
+        <div class="memcell" data-addr="13"><b>Address 13</b>Value: 3</div>
+      </div>
+      <p class="footer-note"><b>Teaching simplification:</b> This version leaves out extra CPU registers such as the Program Counter and Current Instruction Register so students can focus on the requested components.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById('app');
+  if (!root || root.dataset.ready === '1') return;
+  root.dataset.ready = '1';
+
+  const info = {
+    input:{title:'Input',fn:'Sends data or instructions into the computer.',q:'Where does data enter the system?',clue:'IN = information goes in.',ex:'A keyboard sends the number 5 into the computer.'},
+    output:{title:'Output',fn:'Presents processed information to the user.',q:'Where do processed results go?',clue:'OUT = results come out.',ex:'A monitor displays the answer 8.'},
+    cu:{title:'Control Unit (CU)',fn:'Coordinates the CPU. It decodes instructions and sends control signals telling components what to do.',q:'Who is directing the operation?',clue:'CU = the conductor of the orchestra.',ex:'The CU tells the ALU when to add and tells memory when to read or write.'},
+    alu:{title:'Arithmetic Logic Unit (ALU)',fn:'Performs arithmetic calculations and logical comparisons.',q:'Where does the processing happen?',clue:'ALU = calculator + logic checker.',ex:'For ADD 5, 3, the ALU calculates 8.'},
+    mar:{title:'Memory Address Register (MAR)',fn:'Stores the address of the memory location that the CPU wants to access.',q:'Which memory location?',clue:'MAR = Memory ADDRESS Register.',ex:'If the CPU needs location 10, the MAR temporarily holds 10.'},
+    mdr:{title:'Memory Data Register (MDR)',fn:'Temporarily holds data or an instruction being transferred to or from RAM.',q:'What information is moving?',clue:'MDR = Memory DATA Register.',ex:'The instruction ADD 5, 3 can arrive from RAM and be held in the MDR.'},
+    ram:{title:'RAM',fn:'Temporarily stores programs, instructions and data currently being used.',q:'Where is the current program/data kept?',clue:'RAM = short-term working memory.',ex:'Address 10 can contain the instruction ADD 5, 3.'}
+  };
+
+  const infoTitle = root.querySelector('#infoTitle');
+  const infoFunction = root.querySelector('#infoFunction');
+  const infoQuestion = root.querySelector('#infoQuestion');
+  const infoClue = root.querySelector('#infoClue');
+  const infoExample = root.querySelector('#infoExample');
+  const components = [...root.querySelectorAll('.component')];
+  const buses = ['addressBus','dataBus','controlBus','inputPath','outputPath'].map(id=>root.querySelector('#'+id));
+  const packet = root.querySelector('#packet');
+  const packetText = root.querySelector('#packetText');
+  const stepNo = root.querySelector('#stepNo');
+  const stepTitle = root.querySelector('#stepTitle');
+  const stepText = root.querySelector('#stepText');
+  const memoryCells = [...root.querySelectorAll('.memcell')];
+  const speed = root.querySelector('#speed');
+  const autoBtn = root.querySelector('#auto');
+  let current = -1;
+  let timer = null;
+
+  function selectComponent(id){
+    components.forEach(c=>c.classList.toggle('active',c.id===id));
+    const d=info[id]; if(!d) return;
+    infoTitle.textContent=d.title; infoFunction.textContent=d.fn; infoQuestion.textContent=d.q; infoClue.textContent=d.clue;
+    infoExample.innerHTML='<b>Example:</b> '+d.ex;
+  }
+  components.forEach(c=>{
+    c.addEventListener('click',()=>selectComponent(c.id));
+    c.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectComponent(c.id);}});
+  });
+
+  const steps=[
+    {title:'CU requests the instruction',text:'The Control Unit starts the fetch. In this simplified model, it places memory address 10 into the MAR.',active:['cu','mar'],bus:null,packet:'10',pos:[422,365],mem:null},
+    {title:'Address travels to RAM',text:'The MAR sends address 10 along the ADDRESS BUS. The address bus answers the question: “Which memory location?”',active:['mar','ram'],bus:'addressBus',packet:'10',pos:[630,475],mem:'10'},
+    {title:'RAM returns the instruction',text:'RAM reads location 10 and sends “ADD 5, 3” back toward the CPU along the DATA BUS.',active:['ram','mdr'],bus:'dataBus',packet:'ADD',pos:[690,505],mem:'10'},
+    {title:'MDR holds the instruction',text:'The MDR temporarily holds the instruction that has arrived from RAM.',active:['mdr'],bus:null,packet:'ADD',pos:[557,365],mem:null},
+    {title:'CU decodes the instruction',text:'The Control Unit interprets what the instruction means: the ALU must add 5 and 3. The CU coordinates this using control signals.',active:['cu'],bus:'controlBus',packet:'ADD',pos:[490,192],mem:null},
+    {title:'ALU executes',text:'The ALU performs the calculation: 5 + 3 = 8.',active:['alu'],bus:null,packet:'8',pos:[490,282],mem:null},
+    {title:'Result can be stored',text:'The result 8 can move through the MDR and DATA BUS back to RAM for temporary storage.',active:['alu','mdr','ram'],bus:'dataBus',packet:'8',pos:[670,505],mem:'11'},
+    {title:'Result can be output',text:'The processed result can be sent to an output device. The monitor could now display 8.',active:['mdr','output'],bus:'outputPath',packet:'8',pos:[735,335],mem:null}
+  ];
+
+  function clearVisuals(){
+    components.forEach(c=>c.classList.remove('active'));
+    buses.forEach(b=>b.classList.remove('active'));
+    memoryCells.forEach(m=>m.classList.remove('active'));
+    packet.classList.remove('show');
+  }
+  function showStep(i){
+    clearVisuals(); const s=steps[i]; if(!s) return;
+    s.active.forEach(id=>root.querySelector('#'+id)?.classList.add('active'));
+    if(s.bus) root.querySelector('#'+s.bus)?.classList.add('active');
+    if(s.mem) root.querySelector('.memcell[data-addr="'+s.mem+'"]')?.classList.add('active');
+    packetText.textContent=s.packet; packet.setAttribute('transform','translate('+s.pos[0]+' '+s.pos[1]+')'); packet.classList.add('show');
+    stepNo.textContent='Step '+(i+1)+' of '+steps.length; stepTitle.textContent=s.title; stepText.textContent=s.text;
+  }
+  function nextStep(){
+    current=(current+1)%steps.length; showStep(current);
+  }
+  function stopAuto(){if(timer){clearInterval(timer);timer=null;} autoBtn.textContent='Auto Play';}
+  function startAuto(){stopAuto(); autoBtn.textContent='Pause'; nextStep(); timer=setInterval(nextStep,Number(speed.value));}
+
+  root.querySelector('#next').addEventListener('click',()=>{stopAuto();nextStep();});
+  autoBtn.addEventListener('click',()=>{timer?stopAuto():startAuto();});
+  root.querySelector('#reset').addEventListener('click',()=>{stopAuto();current=-1;clearVisuals();stepNo.textContent='Ready';stepTitle.textContent='Explore first, then run the cycle';stepText.innerHTML='Click any component in the diagram to read its function. When ready, press <b>Next Step</b>.';infoTitle.textContent='Component Explorer';infoFunction.textContent='Select a component in the diagram.';infoQuestion.textContent='What does it do?';infoClue.textContent='Click to reveal.';infoExample.innerHTML='<b>Try this:</b> click MAR, MDR and each bus before starting the animation.';});
+  speed.addEventListener('change',()=>{if(timer) startAuto();});
+})();
+</script>
+</body>
+</html>
